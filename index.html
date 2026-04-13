@@ -225,29 +225,35 @@
         "971":"Guadeloupe","972":"Martinique","973":"Guyane","974":"La Réunion","976":"Mayotte"
     };
 
-    // Convertit un code (ex: "84", "84000", "gironde") en nom de département
+    // Convertit n'importe quel format en nom officiel de département
     function normalizeDept(raw) {
         if (!raw) return "Autres";
         let s = String(raw).trim();
+        if (s === "" || s === "Autres") return "Autres";
 
-        // Code numérique pur (1 ou 2 chiffres stockés) → chercher dans dictionnaire
+        // 1. Code numérique court (ex: "84", "9", "59")
         if (/^\d{1,3}$/.test(s)) {
             const padded = s.padStart(2, "0");
             if (DEPTS[padded]) return DEPTS[padded];
         }
 
-        // Code postal complet (5 chiffres) → extraire les 2 premiers
+        // 2. Code postal complet 5 chiffres (ex: "84000", "59000")
         if (/^\d{5}$/.test(s)) {
+            const n = parseInt(s, 10);
+            if (n >= 20000 && n <= 20190) return "Corse-du-Sud";
+            if (n >= 20200 && n <= 20999) return "Haute-Corse";
             const code = s.substring(0, 2);
             if (DEPTS[code]) return DEPTS[code];
-            // Cas Corse : 20xxx
-            if (s.startsWith("200") || s.startsWith("201")) return DEPTS["2A"] || "Corse-du-Sud";
-            if (s.startsWith("202") || s.startsWith("206")) return DEPTS["2B"] || "Haute-Corse";
         }
 
-        // Déjà un nom texte (ex: "Gironde", "gironde")
-        if (isNaN(s) && s !== "Autres") {
-            return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+        // 3. Nom texte : chercher en ignorant la casse dans les valeurs du dico
+        const sLower = s.toLowerCase();
+        const found = Object.values(DEPTS).find(v => v.toLowerCase() === sLower);
+        if (found) return found;
+
+        // 4. Texte libre inconnu : conserver tel quel (1ère lettre maj)
+        if (isNaN(s)) {
+            return s.charAt(0).toUpperCase() + s.slice(1);
         }
 
         return "Autres";
@@ -334,14 +340,14 @@
 
                 // Cascade de fallbacks pour récupérer le département
                 if (addr.postcode) {
-                    // On stocke le code postal complet → normalizeDept saura le convertir
-                    dVal = addr.postcode;
+                    dVal = normalizeDept(addr.postcode);
                 } else if (addr.county) {
-                    dVal = addr.county
+                    const rawCounty = addr.county
                         .replace(/^Département (de |du |des |d'|de l')/i, "")
                         .trim();
+                    dVal = normalizeDept(rawCounty);
                 } else if (addr.state) {
-                    dVal = addr.state.trim();
+                    dVal = normalizeDept(addr.state.trim());
                 }
 
                 await fetch(URL_SCRIPT, {
