@@ -27,7 +27,6 @@
             line-height: 1.6;
         }
 
-        /* --- Header & Hero Section --- */
         header {
             background: linear-gradient(rgba(26, 37, 47, 0.8), rgba(26, 37, 47, 0.9)),
                         url('https://images.unsplash.com/photo-1504626332763-71887201306b?auto=format&fit=crop&q=80&w=2000');
@@ -54,7 +53,6 @@
             font-weight: 300;
         }
 
-        /* --- Formulaire Flottant --- */
         .container {
             max-width: 1100px;
             margin: -40px auto 40px;
@@ -120,7 +118,6 @@
             box-shadow: 0 5px 15px rgba(45, 106, 79, 0.3);
         }
 
-        /* --- Carte --- */
         #map {
             height: 500px;
             width: 100%;
@@ -130,12 +127,7 @@
             z-index: 1;
         }
 
-        /* --- Stats Section --- */
-        .stats-title {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
+        .stats-title { text-align: center; margin-bottom: 30px; }
         .stats-title h2 { font-size: 2em; color: var(--primary); }
 
         .region-grid {
@@ -168,12 +160,8 @@
             margin-bottom: 8px;
         }
 
-        .region-card span {
-            color: #64748b;
-            font-weight: 500;
-        }
+        .region-card span { color: #64748b; font-weight: 500; }
 
-        /* --- Modal Custom --- */
         .modal { display: none; position: fixed; z-index: 2000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); }
         .modal-content { background: white; margin: 8% auto; padding: 40px; width: 90%; max-width: 550px; border-radius: 24px; position: relative; animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -212,7 +200,8 @@
     </div>
 
     <div id="regionGrid" class="region-grid">
-        </div>
+        <p style="text-align:center; grid-column: 1/-1;">Chargement des membres...</p>
+    </div>
 </div>
 
 <div id="myModal" class="modal">
@@ -231,10 +220,10 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
 <script>
-    const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec"; // <--- TON URL ICI
+    const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec";
 
     var map = L.map('map', { scrollWheelZoom: false }).setView([46.6, 2.2], 6);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap France' }).addTo(map);
 
     var markers = L.markerClusterGroup();
     map.addLayer(markers);
@@ -242,7 +231,6 @@
     window.onload = loadData;
 
     async function loadData() {
-        if (URL_SCRIPT.includes("TON_URL")) return;
         try {
             const response = await fetch(URL_SCRIPT);
             const data = await response.json();
@@ -262,14 +250,19 @@
             });
             renderStats(stats);
         } catch (e) {
-            document.getElementById('regionGrid').innerHTML = "<p>Données bientôt disponibles...</p>";
+            document.getElementById('regionGrid').innerHTML = "<p style='text-align:center; grid-column: 1/-1;'>Données bientôt disponibles...</p>";
         }
     }
 
     function renderStats(stats) {
         const grid = document.getElementById('regionGrid');
         grid.innerHTML = "";
-        Object.keys(stats).sort().forEach(dep => {
+        const keys = Object.keys(stats).sort();
+        if(keys.length === 0) {
+            grid.innerHTML = "<p style='text-align:center; grid-column: 1/-1;'>Aucun membre pour le moment.</p>";
+            return;
+        }
+        keys.forEach(dep => {
             let count = Object.values(stats[dep]).flat().length;
             const card = document.createElement('div');
             card.className = 'region-card';
@@ -292,72 +285,58 @@
     function closeModal() { document.getElementById('myModal').style.display = "none"; }
 
     async function ajouterMembre() {
-    const pseudo = document.getElementById('pseudo').value.trim();
-    const city = document.getElementById('city').value.trim();
+        const pseudo = document.getElementById('pseudo').value.trim();
+        const city = document.getElementById('city').value.trim();
 
-    if (!pseudo || !city) {
-        alert("Merci de remplir tous les champs.");
-        return;
-    }
+        if (!pseudo || !city) {
+            alert("Merci de remplir tous les champs.");
+            return;
+        }
 
-    try {
-        // Ajout d'un indicateur de chargement sur le bouton
         const btn = document.querySelector(".form-card button");
         const btnTexteOriginal = btn.innerText;
         btn.innerText = "Recherche...";
         btn.disabled = true;
 
-        const geoResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(city)},France`);
-        const geoData = await geoResp.json();
+        try {
+            const geoResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&accept-language=fr&q=${encodeURIComponent(city)},France`);
+            const geoData = await geoResp.json();
 
-        if (geoData.length > 0) {
-            const info = geoData[0];
+            if (geoData.length > 0) {
+                const info = geoData[0];
+                const addr = info.address;
+                let deptFound = "Autres";
 
-            // Sécurité pour le département
-            let deptFound = "Autres";
-            if (info.address && info.address.postcode) {
-                deptFound = info.address.postcode.substring(0, 2);
-            } else if (info.address && info.address.county) {
-                deptFound = info.address.county;
+                if (addr.postcode) {
+                    deptFound = addr.postcode.substring(0, 2);
+                } else if (addr.county) {
+                    deptFound = addr.county.replace("Département de ", "").replace("l'", "");
+                } else if (addr.state) {
+                    deptFound = addr.state;
+                }
+
+                await fetch(URL_SCRIPT, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ pseudo, ville: city, lat: info.lat, lon: info.lon, dept: deptFound })
+                });
+
+                alert(`Parfait ${pseudo} ! Tu as été ajouté.`);
+                document.getElementById('pseudo').value = "";
+                document.getElementById('city').value = "";
+                setTimeout(loadData, 1200);
+            } else {
+                alert("Ville non reconnue.");
             }
-
-            // Envoi vers Google Sheets
-            await fetch(URL_SCRIPT, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({
-                    pseudo: pseudo,
-                    ville: city,
-                    lat: info.lat,
-                    lon: info.lon,
-                    dept: deptFound
-                })
-            });
-
-            alert(`Parfait ${pseudo} ! Tu as été ajouté.`);
-
-            // Nettoyage et rafraîchissement
-            document.getElementById('pseudo').value = "";
-            document.getElementById('city').value = "";
-            btn.innerText = btnTexteOriginal;
-            btn.disabled = false;
-
-            setTimeout(loadData, 1000);
-        } else {
-            alert("Ville non reconnue. Essayez d'ajouter le code postal (ex: Bordeaux 33000)");
+        } catch (e) {
+            alert("Erreur technique.");
+        } finally {
             btn.innerText = btnTexteOriginal;
             btn.disabled = false;
         }
-    } catch (e) {
-        console.error("Erreur complète:", e);
-        alert("Une erreur technique est survenue.");
-        const btn = document.querySelector(".form-card button");
-        btn.innerText = "M'ajouter";
-        btn.disabled = false;
     }
-}
 
-    window.onclick = (e) => { if (e.target.className == 'modal') closeModal(); }
+    window.onclick = (e) => { if (e.target.className === 'modal') closeModal(); }
 </script>
 
 </body>
