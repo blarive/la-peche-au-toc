@@ -278,7 +278,13 @@
             const d = normalizeDept(addr.postcode);
             if (d !== "Autres") return d;
         }
-        // Priorité 2 : champ "department" (présent sur certaines villes)
+        // Priorité 2 : code ISO3166-2-lvl6 (ex: "FR-75C" → "75", "FR-84" → "84")
+        if (addr["ISO3166-2-lvl6"]) {
+            const iso = addr["ISO3166-2-lvl6"].replace("FR-", "").replace(/[A-Z]$/, "");
+            const d = normalizeDept(iso);
+            if (d !== "Autres") return d;
+        }
+        // Priorité 3 : champ "department" (présent sur certaines villes)
         if (addr.department) {
             const d = normalizeDept(addr.department);
             if (d !== "Autres") return d;
@@ -312,7 +318,13 @@
     async function loadData() {
         try {
             const response = await fetch(URL_SCRIPT);
+            if (!response.ok) {
+                console.error("Erreur HTTP loadData:", response.status, response.statusText);
+                document.getElementById('regionGrid').innerHTML = `<p style="grid-column:1/-1;text-align:center;color:red;">Erreur serveur (${response.status}) — vérifiez le déploiement du script Google.</p>`;
+                return;
+            }
             const data = await response.json();
+            console.log("Données reçues:", data.length, "membres. Exemple:", JSON.stringify(data[0]));
             markers.clearLayers();
             let stats = {};
 
