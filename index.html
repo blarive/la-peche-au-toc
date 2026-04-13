@@ -11,19 +11,17 @@
 
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --accent-color: #27ae60;
+            --primary-color: #2c3e50; /* Gris roche */
+            --accent-color: #27ae60;  /* Vert rivière */
             --accent-hover: #219150;
             --bg-color: #f4f7f6;
-            --white: #ffffff;
         }
 
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 0;
             background-color: var(--bg-color);
-            color: #333;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -37,15 +35,11 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
 
-        header h1 {
-            margin: 0;
-            font-size: 2.2em;
-            font-weight: 300;
-        }
+        header h1 { margin: 0; font-size: 2em; font-weight: 300; }
 
         .form-section {
-            background: var(--white);
-            padding: 25px;
+            background: white;
+            padding: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             z-index: 1000;
             display: flex;
@@ -53,25 +47,17 @@
             align-items: center;
         }
 
-        .form-section h2 {
-            margin: 0 0 15px 0;
-            font-size: 1.2em;
-            color: var(--primary-color);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
         .input-group {
             display: flex;
             gap: 10px;
             width: 100%;
-            max-width: 700px;
+            max-width: 800px;
             flex-wrap: wrap;
             justify-content: center;
         }
 
         input {
-            padding: 12px 18px;
+            padding: 12px 20px;
             border: 2px solid #ddd;
             border-radius: 30px;
             font-size: 14px;
@@ -92,8 +78,7 @@
             border-radius: 30px;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);
+            transition: 0.3s;
         }
 
         button:hover {
@@ -104,33 +89,29 @@
         #map {
             flex-grow: 1;
             width: 100%;
-            height: 600px; /* Ajusté pour le visuel */
+            height: 600px;
         }
 
         footer {
             background: var(--primary-color);
-            color: rgba(255,255,255,0.6);
+            color: white;
             text-align: center;
-            padding: 15px;
-            font-size: 0.85em;
+            padding: 10px;
+            font-size: 0.8em;
+            opacity: 0.8;
         }
-
-        /* Style des clusters (groupes de points) */
-        .marker-cluster-small { background-color: rgba(39, 174, 96, 0.6); }
-        .marker-cluster-small div { background-color: rgba(39, 174, 96, 0.8); color: white; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>La pêche au toc, sa technique et ses passionnés</h1>
+    <h1>La pêche au toc : sa technique et ses passionnés</h1>
 </header>
 
 <div class="form-section">
-    <h2>Rejoignez la carte des membres</h2>
     <div class="input-group">
-        <input type="text" id="pseudo" placeholder="Votre pseudo (ex: Jean64)">
-        <input type="text" id="city" placeholder="Votre ville ou code postal">
+        <input type="text" id="pseudo" placeholder="Votre Pseudo / Nom">
+        <input type="text" id="city" placeholder="Votre Ville ou Code Postal">
         <button onclick="ajouterMembre()">M'ajouter à la carte</button>
     </div>
 </div>
@@ -138,37 +119,39 @@
 <div id="map"></div>
 
 <footer>
-    Projet communautaire &bull; Respect de la vie privée &bull; Localisation par ville uniquement
+    Communauté Pêche au Toc & Nymphe &bull; Localisation par ville uniquement
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
 <script>
-    // 1. Initialisation de la carte
+    // 1. Initialisation de la carte (Centrée sur la France)
     var map = L.map('map', { scrollWheelZoom: false }).setView([46.6, 2.2], 6);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Groupe de marqueurs pour le regroupement automatique
+    // Groupe de marqueurs pour le regroupement (Clusters)
     var markers = L.markerClusterGroup();
     map.addLayer(markers);
 
-    // 2. Fonction principale
+    // 2. Fonction pour ajouter un membre
     async function ajouterMembre() {
-        const pseudo = document.getElementById('pseudo').value.trim() || "Anonyme";
+        const pseudo = document.getElementById('pseudo').value.trim();
         const city = document.getElementById('city').value.trim();
-        const urlScript = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec"; // <--- REMPLACER ICI
 
-        if (!city) {
-            alert("Veuillez indiquer une ville.");
+        // --- REMPLACER PAR VOTRE URL /EXEC CI-DESSOUS ---
+        const urlScript = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec";
+
+        if (!pseudo || !city) {
+            alert("Veuillez remplir votre Pseudo ET votre Ville.");
             return;
         }
 
         try {
-            // Géocodage
+            // Géocodage (Transformation Ville -> Coordonnées)
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)},France`);
             const data = await response.json();
 
@@ -176,32 +159,38 @@
                 const lat = data[0].lat;
                 const lon = data[0].lon;
 
-                // Ajouter visuellement sur la carte
-                const marker = L.marker([lat, lon]).bindPopup(`<b>${pseudo}</b><br>Pêcheur à ${city}`);
+                // Affichage sur la carte
+                const marker = L.marker([lat, lon]).bindPopup(`<b>${pseudo}</b><br>${city}`);
                 markers.addLayer(marker);
-                map.setView([lat, lon], 9);
+                map.setView([lat, lon], 8);
 
-                // Envoi vers Google Sheets
-                if (urlScript !== "TON_URL_GOOGLE_APPS_SCRIPT_EXEC") {
+                // Envoi des données vers le Google Sheets
+                if (urlScript.includes("google.com")) {
                     fetch(urlScript, {
                         method: 'POST',
                         mode: 'no-cors',
-                        body: JSON.stringify({ "pseudo": pseudo, "ville": city, "lat": lat, "lon": lon })
+                        body: JSON.stringify({
+                            "pseudo": pseudo,
+                            "ville": city,
+                            "lat": lat,
+                            "lon": lon
+                        })
                     });
-                    alert(`Merci ${pseudo} ! Ta présence est enregistrée.`);
+                    alert(`Super ${pseudo} ! Ta position est enregistrée.`);
                 } else {
-                    alert("Attention : L'URL du script Google n'est pas configurée.");
+                    alert("Erreur : L'URL du script Google n'est pas configurée.");
                 }
 
-                // Reset champs
+                // Reset des champs
                 document.getElementById('pseudo').value = "";
                 document.getElementById('city').value = "";
 
             } else {
-                alert("Ville introuvable. Essayez avec le code postal.");
+                alert("Ville introuvable. Précisez le département ou le code postal.");
             }
         } catch (e) {
-            alert("Erreur de connexion.");
+            alert("Une erreur technique est survenue.");
+            console.error(e);
         }
     }
 </script>
