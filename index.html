@@ -150,6 +150,18 @@
 
         footer { background: var(--primary); color: white; text-align: center; padding: 40px 20px; margin-top: 50px; }
 
+        .badge-admin {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white; font-size: 0.7em; font-weight: 700;
+            padding: 2px 8px; border-radius: 20px;
+            vertical-align: middle; margin-left: 6px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            box-shadow: 0 1px 4px rgba(217,119,6,0.4);
+        }
+        .city-item.is-admin { border-left: 3px solid #f59e0b; background: #fffbeb; }
+        .city-item.is-admin .city-name { color: #92400e; }
+
         .marker-cluster-small { background-color: rgba(180,30,30,0.6); }
         .marker-cluster-small div { background-color: rgba(180,30,30,0.9); color: white; font-weight: 700; }
         .marker-cluster-medium { background-color: rgba(160,20,20,0.6); }
@@ -350,14 +362,22 @@
             data.forEach(item => {
                 if (!item.lat || !item.lon) return;
 
-                const marker = L.marker([item.lat, item.lon]).bindPopup(`<b>${item.pseudo}</b><br>${item.ville}`);
+                const isAdmin = String(item.tag || "").trim().toLowerCase() === "admin";
+                const pseudoLabel = isAdmin
+                    ? `${item.pseudo} <span class="badge-admin">👑 Admin</span>`
+                    : item.pseudo;
+
+                const marker = L.marker([item.lat, item.lon]).bindPopup(
+                    `<b>${item.pseudo}</b>${isAdmin ? ' <span class="badge-admin">👑 Admin</span>' : ''}<br>${item.ville}`
+                );
                 markers.addLayer(marker);
 
                 const depKey = normalizeDept(item.dept);
 
                 if (!stats[depKey]) stats[depKey] = {};
                 if (!stats[depKey][item.ville]) stats[depKey][item.ville] = [];
-                stats[depKey][item.ville].push(item.pseudo);
+                // Stocker { pseudo, isAdmin } pour l'affichage dans la modale
+                stats[depKey][item.ville].push({ pseudo: item.pseudo, isAdmin });
             });
             renderStats(stats);
         } catch (e) {
@@ -373,14 +393,19 @@
         const sorted = Object.entries(stats).sort((a, b) => {
             const countA = Object.values(a[1]).flat().length;
             const countB = Object.values(b[1]).flat().length;
-            return countB - countA;
+            // Départements avec admin remontent en priorité à égalité
+            const adminA = Object.values(a[1]).flat().some(m => m.isAdmin) ? 1 : 0;
+            const adminB = Object.values(b[1]).flat().some(m => m.isAdmin) ? 1 : 0;
+            return countB - countA || adminB - adminA;
         });
 
         sorted.forEach(([dep, cities]) => {
-            const count = Object.values(cities).flat().length;
+            const members = Object.values(cities).flat();
+            const count = members.length;
+            const hasAdmin = members.some(m => m.isAdmin);
             const card = document.createElement('div');
             card.className = 'region-card';
-            card.innerHTML = `<b>${dep}</b><span>${count} membre(s)</span>`;
+            card.innerHTML = `<b>${dep}</b><span>${count} membre(s)${hasAdmin ? ' <span class="badge-admin">👑 Admin</span>' : ''}</span>`;
             card.onclick = () => openModal(dep, cities);
             grid.appendChild(card);
         });
@@ -392,8 +417,20 @@
         body.innerHTML = "";
         // Trier les villes par nombre de membres décroissant
         const sortedCities = Object.entries(cityData).sort((a, b) => b[1].length - a[1].length);
-        sortedCities.forEach(([ville, pseudos]) => {
-            body.innerHTML += `<div class="city-item"><span class="city-name">${ville}</span><span style="color:var(--accent-light)">${pseudos.join(', ')}</span></div>`;
+        sortedCities.forEach(([ville, members]) => {
+            // Trier : admins en premier, puis alphabétique
+            const sorted = [...members].sort((a, b) => {
+                if (a.isAdmin && !b.isAdmin) return -1;
+                if (!a.isAdmin && b.isAdmin) return 1;
+                return a.pseudo.localeCompare(b.pseudo);
+            });
+            const pseudosHtml = sorted.map(m =>
+                m.isAdmin
+                    ? `<strong>${m.pseudo}</strong> <span class="badge-admin">👑 Admin</span>`
+                    : m.pseudo
+            ).join(', ');
+            const adminClass = members.some(m => m.isAdmin) ? ' is-admin' : '';
+            body.innerHTML += `<div class="city-item${adminClass}"><span class="city-name">${ville}</span><span style="color:var(--accent-light)">${pseudosHtml}</span></div>`;
         });
         document.getElementById('myModal').style.display = "block";
     }
