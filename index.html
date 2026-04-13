@@ -6,220 +6,202 @@
     <title>La pêche au toc : sa technique et ses passionnés</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
 
     <style>
-        /* --- Styles Généraux --- */
         :root {
-            --primary-color: #2c3e50; /* Gris roche/bleu nuit */
-            --accent-color: #27ae60;  /* Vert rivière */
+            --primary-color: #2c3e50;
+            --accent-color: #27ae60;
             --accent-hover: #219150;
             --bg-color: #f4f7f6;
-            --text-color: #333;
-            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --white: #ffffff;
         }
 
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             background-color: var(--bg-color);
-            color: var(--text-color);
+            color: #333;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
         }
 
-        /* --- En-tête (Header) --- */
         header {
             background: linear-gradient(135deg, var(--primary-color) 0%, #1a252f 100%);
             color: white;
-            padding: 40px 20px;
+            padding: 30px 20px;
             text-align: center;
-            box-shadow: var(--shadow);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
 
         header h1 {
             margin: 0;
-            font-size: 2.5em;
+            font-size: 2.2em;
             font-weight: 300;
-            letter-spacing: 1px;
         }
 
-        header p {
-            margin: 10px 0 0;
-            font-size: 1.1em;
-            opacity: 0.8;
-        }
-
-        /* --- Zone de Formulaire --- */
         .form-section {
-            background-color: white;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            z-index: 10; /* Pour passer au-dessus de la carte */
+            background: var(--white);
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .form-section h2 {
-            margin-top: 0;
-            font-weight: 400;
+            margin: 0 0 15px 0;
+            font-size: 1.2em;
             color: var(--primary-color);
-            font-size: 1.5em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .input-group {
             display: flex;
-            justify-content: center;
             gap: 10px;
-            max-width: 500px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: 700px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
-        input[type="text"] {
-            flex-grow: 1;
-            padding: 12px 15px;
+        input {
+            padding: 12px 18px;
             border: 2px solid #ddd;
-            border-radius: 25px; /* Bord arrondi */
-            font-size: 1em;
+            border-radius: 30px;
+            font-size: 14px;
+            outline: none;
             transition: border-color 0.3s;
         }
 
-        input[type="text"]:focus {
-            outline: none;
-            border-color: var(--accent-color);
-        }
+        input:focus { border-color: var(--accent-color); }
+
+        #pseudo { flex: 1; min-width: 150px; }
+        #city { flex: 2; min-width: 200px; }
 
         button {
             padding: 12px 25px;
             background-color: var(--accent-color);
             color: white;
             border: none;
-            border-radius: 25px;
-            font-size: 1em;
+            border-radius: 30px;
             font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.3s, transform 0.1s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(39, 174, 96, 0.2);
         }
 
         button:hover {
             background-color: var(--accent-hover);
-        }
-
-        button:active {
-            transform: translateY(1px); /* Effet de clic */
-        }
-
-        /* --- Zone de la Carte --- */
-        #map-container {
-            flex-grow: 1; /* Prend tout l'espace restant */
-            position: relative;
+            transform: translateY(-2px);
         }
 
         #map {
-            height: 600px; /* Hauteur fixe pour la carte */
+            flex-grow: 1;
             width: 100%;
+            height: 600px; /* Ajusté pour le visuel */
         }
 
-        /* --- Pied de page (Footer) --- */
         footer {
-            background-color: var(--primary-color);
-            color: rgba(255,255,255,0.7);
+            background: var(--primary-color);
+            color: rgba(255,255,255,0.6);
             text-align: center;
             padding: 15px;
-            font-size: 0.9em;
+            font-size: 0.85em;
         }
 
-        /* --- Popup de la carte stylisé --- */
-        .leaflet-popup-content-wrapper {
-            border-radius: 8px;
-            padding: 5px;
-        }
-        .leaflet-popup-content b {
-            color: var(--accent-color);
-        }
+        /* Style des clusters (groupes de points) */
+        .marker-cluster-small { background-color: rgba(39, 174, 96, 0.6); }
+        .marker-cluster-small div { background-color: rgba(39, 174, 96, 0.8); color: white; }
     </style>
 </head>
 <body>
 
 <header>
     <h1>La pêche au toc, sa technique et ses passionnés</h1>
-    <p>Communauté active de 7 000 membres</p>
 </header>
 
 <div class="form-section">
-    <h2>Carte communautaire : signalez votre présence</h2>
+    <h2>Rejoignez la carte des membres</h2>
     <div class="input-group">
-        <input type="text" id="city" placeholder="Votre ville ou code postal (Ex: 64000)">
-        <button onclick="ajouterMembre()">M'ajouter</button>
+        <input type="text" id="pseudo" placeholder="Votre pseudo (ex: Jean64)">
+        <input type="text" id="city" placeholder="Votre ville ou code postal">
+        <button onclick="ajouterMembre()">M'ajouter à la carte</button>
     </div>
 </div>
 
-<div id="map-container">
-    <div id="map"></div>
-</div>
+<div id="map"></div>
 
 <footer>
-    <p>Projet communautaire - Seule la ville est enregistrée pour le respect de la vie privée.</p>
+    Projet communautaire &bull; Respect de la vie privée &bull; Localisation par ville uniquement
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    // --- Configuration de la Carte ---
-    // Centré sur la France, zoom adapté
-    var map = L.map('map', {
-        scrollWheelZoom: false // Désactive le zoom molette pour éviter les erreurs de défilement de page
-    }).setView([46.6033, 1.8883], 6);
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
-    // Fond de carte OpenStreetMap (style clair et lisible)
+<script>
+    // 1. Initialisation de la carte
+    var map = L.map('map', { scrollWheelZoom: false }).setView([46.6, 2.2], 6);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // --- Fonction d'ajout de membre ---
-    async function ajouterMembre() {
-        const cityInput = document.getElementById('city');
-        const city = cityInput.value.trim();
+    // Groupe de marqueurs pour le regroupement automatique
+    var markers = L.markerClusterGroup();
+    map.addLayer(markers);
 
-        if(!city) {
-            alert("Veuillez saisir une ville ou un code postal.");
+    // 2. Fonction principale
+    async function ajouterMembre() {
+        const pseudo = document.getElementById('pseudo').value.trim() || "Anonyme";
+        const city = document.getElementById('city').value.trim();
+        const urlScript = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec"; // <--- REMPLACER ICI
+
+        if (!city) {
+            alert("Veuillez indiquer une ville.");
             return;
         }
 
-        // 1. Géocodage via Nominatim (transforme le nom en coordonnées)
         try {
+            // Géocodage
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)},France`);
             const data = await response.json();
 
-            if(data.length > 0) {
+            if (data.length > 0) {
                 const lat = data[0].lat;
                 const lon = data[0].lon;
 
-                // 2. Affichage visuel sur la carte (Balise)
-                const marker = L.marker([lat, lon]).addTo(map);
-                marker.bindPopup(`<b>Pêcheur à ${city}</b><br>Communauté Toc & Nymphe`).openPopup();
-                map.setView([lat, lon], 10); // Zoome doucement sur la ville ajoutée
+                // Ajouter visuellement sur la carte
+                const marker = L.marker([lat, lon]).bindPopup(`<b>${pseudo}</b><br>Pêcheur à ${city}`);
+                markers.addLayer(marker);
+                map.setView([lat, lon], 9);
 
-                // 3. ENREGISTREMENT VERS GOOGLE SHEETS
-                // COLLES TON URL /exec ICI
-                const urlScript = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec";
+                // Envoi vers Google Sheets
+                if (urlScript !== "TON_URL_GOOGLE_APPS_SCRIPT_EXEC") {
+                    fetch(urlScript, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: JSON.stringify({ "pseudo": pseudo, "ville": city, "lat": lat, "lon": lon })
+                    });
+                    alert(`Merci ${pseudo} ! Ta présence est enregistrée.`);
+                } else {
+                    alert("Attention : L'URL du script Google n'est pas configurée.");
+                }
 
-                fetch(urlScript, {
-                    method: 'POST',
-                    mode: 'no-cors', // Évite les erreurs CORS lors des tests
-                    body: JSON.stringify({ "ville": city, "lat": lat, "lon": lon })
-                });
-
-                // Réinitialise le champ
-                cityInput.value = "";
-                alert(`Merci ! Votre présence à ${city} est désormais signalée sur la carte.`);
+                // Reset champs
+                document.getElementById('pseudo').value = "";
+                document.getElementById('city').value = "";
 
             } else {
-                alert("Ville non trouvée. Précisez le code postal si nécessaire.");
+                alert("Ville introuvable. Essayez avec le code postal.");
             }
-        } catch (error) {
-            console.error(error);
-            alert("Une erreur est survenue lors de la recherche.");
+        } catch (e) {
+            alert("Erreur de connexion.");
         }
     }
 </script>
