@@ -194,10 +194,9 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
 <script>
-    // URL COMPLETE AVEC HTTPS ET /EXEC
     const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec";
 
-    // --- Dictionnaire numéro de département → nom ---
+    // Dictionnaire code département → nom
     const DEPTS = {
         "01":"Ain","02":"Aisne","03":"Allier","04":"Alpes-de-Haute-Provence",
         "05":"Hautes-Alpes","06":"Alpes-Maritimes","07":"Ardèche","08":"Ardennes",
@@ -225,37 +224,82 @@
         "971":"Guadeloupe","972":"Martinique","973":"Guyane","974":"La Réunion","976":"Mayotte"
     };
 
-    // Convertit n'importe quel format en nom officiel de département
+    // Index inversé : nom normalisé (sans accents, lowercase) → nom officiel
+    // Permet de retrouver "gironde", "Gironde", "GIRONDE" → "Gironde"
+    function removeDiacritics(str) {
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    }
+    const DEPTS_BY_NAME = {};
+    Object.values(DEPTS).forEach(v => {
+        DEPTS_BY_NAME[removeDiacritics(v)] = v;
+    });
+
+    // Résout n'importe quel format en nom officiel
     function normalizeDept(raw) {
         if (!raw) return "Autres";
-        let s = String(raw).trim();
-        if (s === "" || s === "Autres") return "Autres";
+        const s = String(raw).trim();
+        if (!s || s === "Autres") return "Autres";
 
-        // 1. Code numérique court (ex: "84", "9", "59")
+        // Code numérique court : "84", "9", "59"
         if (/^\d{1,3}$/.test(s)) {
-            const padded = s.padStart(2, "0");
-            if (DEPTS[padded]) return DEPTS[padded];
+            const k = s.padStart(2, "0");
+            if (DEPTS[k]) return DEPTS[k];
         }
 
-        // 2. Code postal complet 5 chiffres (ex: "84000", "59000")
+        // Code postal 5 chiffres : "84000", "59000"
         if (/^\d{5}$/.test(s)) {
             const n = parseInt(s, 10);
             if (n >= 20000 && n <= 20190) return "Corse-du-Sud";
             if (n >= 20200 && n <= 20999) return "Haute-Corse";
-            const code = s.substring(0, 2);
-            if (DEPTS[code]) return DEPTS[code];
+            const k = s.substring(0, 2);
+            if (DEPTS[k]) return DEPTS[k];
         }
 
-        // 3. Nom texte : chercher en ignorant la casse dans les valeurs du dico
-        const sLower = s.toLowerCase();
-        const found = Object.values(DEPTS).find(v => v.toLowerCase() === sLower);
-        if (found) return found;
+        // Nom texte : recherche sans accents et insensible à la casse
+        const normalized = removeDiacritics(s);
+        if (DEPTS_BY_NAME[normalized]) return DEPTS_BY_NAME[normalized];
 
-        // 4. Texte libre inconnu : conserver tel quel (1ère lettre maj)
-        if (isNaN(s)) {
-            return s.charAt(0).toUpperCase() + s.slice(1);
+        // Correspondance partielle (ex: "Métropole de Lyon" → "Rhône")
+        for (const [key, val] of Object.entries(DEPTS_BY_NAME)) {
+            if (normalized.includes(key) || key.includes(normalized)) return val;
         }
 
+        // Texte inconnu non numérique : conserver avec 1ère lettre maj
+        if (isNaN(s)) return s.charAt(0).toUpperCase() + s.slice(1);
+
+        return "Autres";
+    }
+
+    // Résout le département depuis l'objet address Nominatim
+    // Nominatim peut retourner : postcode, county, state_district, department, state...
+    function deptFromNominatim(addr) {
+        // Priorité 1 : code postal (le plus fiable)
+        if (addr.postcode) {
+            const d = normalizeDept(addr.postcode);
+            if (d !== "Autres") return d;
+        }
+        // Priorité 2 : champ "department" (présent sur certaines villes)
+        if (addr.department) {
+            const d = normalizeDept(addr.department);
+            if (d !== "Autres") return d;
+        }
+        // Priorité 3 : county (souvent "Département du Gard" etc.)
+        if (addr.county) {
+            const clean = addr.county.replace(/^(Département|Department)\s+(du|de la|des|de l'|de|d'|du )\s*/i, "").trim();
+            const d = normalizeDept(clean);
+            if (d !== "Autres") return d;
+        }
+        // Priorité 4 : state_district
+        if (addr.state_district) {
+            const d = normalizeDept(addr.state_district);
+            if (d !== "Autres") return d;
+        }
+        // Priorité 5 : chercher dans TOUTES les valeurs de l'objet addr
+        for (const val of Object.values(addr)) {
+            if (typeof val !== "string") continue;
+            const d = normalizeDept(val);
+            if (d !== "Autres") return d;
+        }
         return "Autres";
     }
 
@@ -275,11 +319,9 @@
             data.forEach(item => {
                 if (!item.lat || !item.lon) return;
 
-                // 1. Ajouter le marqueur
                 const marker = L.marker([item.lat, item.lon]).bindPopup(`<b>${item.pseudo}</b><br>${item.ville}`);
                 markers.addLayer(marker);
 
-                // 2. Résoudre le nom du département
                 const depKey = normalizeDept(item.dept);
 
                 if (!stats[depKey]) stats[depKey] = {};
@@ -296,14 +338,19 @@
     function renderStats(stats) {
         const grid = document.getElementById('regionGrid');
         grid.innerHTML = "";
-        const sortedKeys = Object.keys(stats).sort();
+        // Trier par nombre de membres décroissant
+        const sorted = Object.entries(stats).sort((a, b) => {
+            const countA = Object.values(a[1]).flat().length;
+            const countB = Object.values(b[1]).flat().length;
+            return countB - countA;
+        });
 
-        sortedKeys.forEach(dep => {
-            let count = Object.values(stats[dep]).flat().length;
+        sorted.forEach(([dep, cities]) => {
+            const count = Object.values(cities).flat().length;
             const card = document.createElement('div');
             card.className = 'region-card';
             card.innerHTML = `<b>${dep}</b><span>${count} membre(s)</span>`;
-            card.onclick = () => openModal(dep, stats[dep]);
+            card.onclick = () => openModal(dep, cities);
             grid.appendChild(card);
         });
     }
@@ -312,9 +359,11 @@
         document.getElementById('modalTitle').innerText = title;
         const body = document.getElementById('modalBody');
         body.innerHTML = "";
-        for (let ville in cityData) {
-            body.innerHTML += `<div class="city-item"><span class="city-name">${ville}</span><span style="color:var(--accent-light)">${cityData[ville].join(', ')}</span></div>`;
-        }
+        // Trier les villes par nombre de membres décroissant
+        const sortedCities = Object.entries(cityData).sort((a, b) => b[1].length - a[1].length);
+        sortedCities.forEach(([ville, pseudos]) => {
+            body.innerHTML += `<div class="city-item"><span class="city-name">${ville}</span><span style="color:var(--accent-light)">${pseudos.join(', ')}</span></div>`;
+        });
         document.getElementById('myModal').style.display = "block";
     }
 
@@ -336,19 +385,12 @@
             if (geoData.length > 0) {
                 const info = geoData[0];
                 const addr = info.address;
-                let dVal = "Autres";
 
-                // Cascade de fallbacks pour récupérer le département
-                if (addr.postcode) {
-                    dVal = normalizeDept(addr.postcode);
-                } else if (addr.county) {
-                    const rawCounty = addr.county
-                        .replace(/^Département (de |du |des |d'|de l')/i, "")
-                        .trim();
-                    dVal = normalizeDept(rawCounty);
-                } else if (addr.state) {
-                    dVal = normalizeDept(addr.state.trim());
-                }
+                // Log pour débogage (à retirer en prod)
+                console.log("Nominatim addr:", JSON.stringify(addr));
+
+                const dVal = deptFromNominatim(addr);
+                console.log("Département résolu:", dVal);
 
                 await fetch(URL_SCRIPT, {
                     method: 'POST',
@@ -356,7 +398,7 @@
                     body: JSON.stringify({ pseudo, ville: city, lat: info.lat, lon: info.lon, dept: dVal })
                 });
 
-                alert("Merci ! Inscription réussie.");
+                alert(`Merci ! Inscription réussie (${dVal}).`);
                 document.getElementById('pseudo').value = "";
                 document.getElementById('city').value = "";
                 setTimeout(loadData, 1200);
@@ -364,6 +406,7 @@
                 alert("Ville non trouvée.");
             }
         } catch (e) {
+            console.error(e);
             alert("Erreur de connexion.");
         } finally {
             btn.disabled = false;
