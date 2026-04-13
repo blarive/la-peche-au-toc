@@ -10,23 +10,22 @@
     <style>
         :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--primary); }
-        header { background: var(--primary); color: white; padding: 25px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .form-section { background: white; padding: 20px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; }
+        header { background: var(--primary); color: white; padding: 20px; text-align: center; }
+        .form-section { background: white; padding: 20px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .input-group { display: flex; gap: 10px; max-width: 800px; margin: 0 auto; flex-wrap: wrap; }
-        input { padding: 12px; border: 2px solid #ddd; border-radius: 25px; flex: 1; outline: none; }
-        button { padding: 12px 25px; background: var(--accent); color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #219150; transform: translateY(-2px); }
+        input { padding: 12px; border: 2px solid #ddd; border-radius: 25px; flex: 1; min-width: 150px; outline: none; }
+        button { padding: 12px 25px; background: var(--accent); color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; }
         #map { height: 500px; width: 100%; }
-        .stats-section { padding: 30px; max-width: 1000px; margin: 0 auto; }
-        .region-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 20px; }
-        .region-card { background: white; padding: 20px; border-radius: 12px; cursor: pointer; transition: 0.3s; box-shadow: 0 3px 6px rgba(0,0,0,0.05); text-align: center; border-bottom: 4px solid var(--accent); }
-        .region-card:hover { transform: translateY(-5px); background: var(--accent); color: white; }
-        .modal { display: none; position: fixed; z-index: 10001; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
-        .modal-content { background: white; margin: 10% auto; padding: 30px; width: 85%; max-width: 500px; border-radius: 15px; position: relative; color: var(--primary); }
-        .close { position: absolute; top: 15px; right: 20px; font-size: 25px; cursor: pointer; }
-        .city-list { max-height: 350px; overflow-y: auto; text-align: left; margin-top: 20px; }
-        .city-item { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .city-name { font-weight: bold; color: var(--accent); margin-bottom: 4px; }
+        .stats-section { padding: 30px; max-width: 1000px; margin: 0 auto; text-align: center; }
+        .region-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 20px; }
+        .region-card { background: white; padding: 20px; border-radius: 12px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-bottom: 4px solid var(--accent); }
+        .region-card:hover { transform: translateY(-3px); transition: 0.2s; background: #eee; }
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+        .modal-content { background: white; margin: 10% auto; padding: 20px; width: 80%; max-width: 500px; border-radius: 10px; position: relative; }
+        .close { position: absolute; top: 10px; right: 20px; font-size: 25px; cursor: pointer; }
+        .city-list { max-height: 300px; overflow-y: auto; text-align: left; margin-top: 15px; }
+        .city-name { font-weight: bold; color: var(--accent); margin-top: 10px; border-bottom: 1px solid #ddd; }
     </style>
 </head>
 <body>
@@ -36,7 +35,7 @@
 <div class="form-section">
     <div class="input-group">
         <input type="text" id="pseudo" placeholder="Votre Pseudo">
-        <input type="text" id="city" placeholder="Votre Ville ou CP">
+        <input type="text" id="city" placeholder="Ville ou Code Postal">
         <button onclick="ajouterMembre()">M'ajouter à la carte</button>
     </div>
 </div>
@@ -45,14 +44,15 @@
 
 <div class="stats-section">
     <h2>Classement par Secteur</h2>
-    <p>Cliquez sur un département pour voir qui y pêche.</p>
-    <div id="regionGrid" class="region-grid"></div>
+    <div id="regionGrid" class="region-grid">
+        <p>Chargement des données...</p>
+    </div>
 </div>
 
 <div id="myModal" class="modal">
     <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
-        <h2 id="modalTitle" style="margin-top:0"></h2>
+        <h2 id="modalTitle"></h2>
         <div id="modalBody" class="city-list"></div>
     </div>
 </div>
@@ -61,45 +61,52 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
 <script>
-    const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec"; // <--- METTRE TON URL ICI
+    const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxbYCgCpy-EONxOZX5WveysEamBoMLzF7Fm9HXdCEIdx76W5mZx95J_4Ry6he4uC5FR/exec"; // <--- VERIFIE BIEN CETTE URL
 
     var map = L.map('map', { scrollWheelZoom: false }).setView([46.6, 2.2], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/ca/{z}/{x}/{y}.png').addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     var markers = L.markerClusterGroup();
     map.addLayer(markers);
 
-    // Charger les données au démarrage
-    window.onload = loadData;
-
     async function loadData() {
-        if(URL_SCRIPT.includes("TON_URL")) return;
+        if (URL_SCRIPT.includes("TON_URL")) return;
         try {
             const response = await fetch(URL_SCRIPT);
             const data = await response.json();
 
             markers.clearLayers();
-            let stats = {}; // { "Dép 64": { "Pau": ["Jean", "Pierre"] } }
+            let stats = {};
 
             data.forEach(item => {
-                // Carte
+                // Ajouter sur la carte
                 const marker = L.marker([item.lat, item.lon]).bindPopup(`<b>${item.pseudo}</b><br>${item.ville}`);
                 markers.addLayer(marker);
 
-                // Stats (Extraction Dép via CP ou Ville)
+                // Trier pour le classement (Département)
                 let dep = item.ville.match(/\d{2}/) ? "Dép. " + item.ville.match(/\d{2}/)[0] : "Autres";
-                if(!stats[dep]) stats[dep] = {};
-                if(!stats[dep][item.ville]) stats[dep][item.ville] = [];
+                if (!stats[dep]) stats[dep] = {};
+                if (!stats[dep][item.ville]) stats[dep][item.ville] = [];
                 stats[dep][item.ville].push(item.pseudo);
             });
 
             renderStats(stats);
-        } catch (e) { console.error("Erreur chargement:", e); }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('regionGrid').innerHTML = "Aucune donnée pour le moment.";
+        }
     }
 
     function renderStats(stats) {
         const grid = document.getElementById('regionGrid');
         grid.innerHTML = "";
-        Object.keys(stats).sort().forEach(dep => {
+        const sortedDeps = Object.keys(stats).sort();
+
+        if (sortedDeps.length === 0) {
+            grid.innerHTML = "<p>La carte est vide pour l'instant.</p>";
+            return;
+        }
+
+        sortedDeps.forEach(dep => {
             let count = Object.values(stats[dep]).flat().length;
             const card = document.createElement('div');
             card.className = 'region-card';
@@ -114,7 +121,7 @@
         const body = document.getElementById('modalBody');
         body.innerHTML = "";
         for (let ville in cityData) {
-            body.innerHTML += `<div class="city-item"><div class="city-name">${ville}</div>${cityData[ville].join(', ')}</div>`;
+            body.innerHTML += `<div class="city-name">${ville}</div><div>${cityData[ville].join(', ')}</div>`;
         }
         document.getElementById('myModal').style.display = "block";
     }
@@ -124,20 +131,33 @@
     async function ajouterMembre() {
         const pseudo = document.getElementById('pseudo').value.trim();
         const city = document.getElementById('city').value.trim();
-        if(!pseudo || !city) return alert("Champs vides !");
 
-        const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)},France`);
-        const geo = await resp.json();
+        if (!pseudo || !city) return alert("Pseudo et Ville obligatoires !");
 
-        if(geo.length > 0) {
+        const geoResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)},France`);
+        const geoData = await geoResp.json();
+
+        if (geoData.length > 0) {
+            const lat = geoData[0].lat;
+            const lon = geoData[0].lon;
+
+            // Envoi POST
             await fetch(URL_SCRIPT, {
-                method: 'POST', mode: 'no-cors',
-                body: JSON.stringify({ pseudo, ville: city, lat: geo[0].lat, lon: geo[0].lon })
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify({ pseudo, ville: city, lat, lon })
             });
-            alert("Enregistré ! La carte va s'actualiser.");
-            setTimeout(loadData, 1000); // Recharger les données
-        } else { alert("Ville non trouvée."); }
+
+            alert("Bienvenue sur la carte !");
+            document.getElementById('pseudo').value = "";
+            document.getElementById('city').value = "";
+            loadData(); // On recharge tout
+        } else {
+            alert("Ville introuvable.");
+        }
     }
+
+    window.onload = loadData;
 </script>
 </body>
 </html>
