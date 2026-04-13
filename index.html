@@ -273,15 +273,15 @@
     // Résout le département depuis l'objet address Nominatim
     // Nominatim peut retourner : postcode, county, state_district, department, state...
     function deptFromNominatim(addr) {
-        // Priorité 1 : code postal (le plus fiable)
-        if (addr.postcode) {
-            const d = normalizeDept(addr.postcode);
+        // Priorité 0 : ISO3166-2-lvl6 est le plus fiable (ex: "FR-84" → "84", "FR-75C" → "75")
+        if (addr["ISO3166-2-lvl6"]) {
+            const iso = addr["ISO3166-2-lvl6"].replace("FR-", "").replace(/[A-Z]+$/, "");
+            const d = normalizeDept(iso);
             if (d !== "Autres") return d;
         }
-        // Priorité 2 : code ISO3166-2-lvl6 (ex: "FR-75C" → "75", "FR-84" → "84")
-        if (addr["ISO3166-2-lvl6"]) {
-            const iso = addr["ISO3166-2-lvl6"].replace("FR-", "").replace(/[A-Z]$/, "");
-            const d = normalizeDept(iso);
+        // Priorité 1 : code postal
+        if (addr.postcode) {
+            const d = normalizeDept(addr.postcode);
             if (d !== "Autres") return d;
         }
         // Priorité 3 : champ "department" (présent sur certaines villes)
