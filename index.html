@@ -273,6 +273,9 @@
     // Résout le département depuis l'objet address Nominatim
     // Nominatim peut retourner : postcode, county, state_district, department, state...
     function deptFromNominatim(addr) {
+        // Cas spécial Paris (Nominatim ne retourne pas de county)
+        if (addr.city === "Paris" || addr.municipality === "Paris") return "Paris";
+
         // Priorité 0 : ISO3166-2-lvl6 est le plus fiable (ex: "FR-84" → "84", "FR-75C" → "75")
         if (addr["ISO3166-2-lvl6"]) {
             const iso = addr["ISO3166-2-lvl6"].replace("FR-", "").replace(/[A-Z]+$/, "");
