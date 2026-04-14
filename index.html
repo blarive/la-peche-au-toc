@@ -363,10 +363,10 @@
                 if (!item.lat || !item.lon) return;
 
                 const isAdmin = String(item.tag || "").trim().toLowerCase() === "admin";
-                const pseudoLabel = isAdmin
-                    ? `${item.pseudo} <span class="badge-admin">👑 Admin</span>`
-                    : item.pseudo;
-
+                L.circle([item.lat, item.lon], {
+                    radius: 2000, color: '#2d6a4f',
+                    fillColor: '#2d6a4f', fillOpacity: 0.12, weight: 1
+                }).addTo(map);
                 const marker = L.marker([item.lat, item.lon]).bindPopup(
                     `<b>${item.pseudo}</b>${isAdmin ? ' <span class="badge-admin">👑 Admin</span>' : ''}<br>${item.ville}`
                 );
